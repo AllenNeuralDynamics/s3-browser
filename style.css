@@ -293,6 +293,20 @@ main {
   text-decoration: none;
   border-color: var(--muted);
 }
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  vertical-align: middle;
+  color: var(--muted);
+}
+.copy-btn:hover {
+  color: var(--text);
+}
+.copy-btn svg {
+  display: block;
+}
 
 button.link {
   background: none;
