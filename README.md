@@ -10,7 +10,7 @@ A static web page for browsing public (anonymous-read) Amazon S3 buckets as fold
 - Paging with a configurable page size (1–1000 items per page)
 - Lexicographic order by default (S3's native order); size and date sorting within a page
 - Previews for text files (txt, md, json, yaml, csv, tsv, xml, Zarr metadata, …). JSON is pretty-printed; CSV/TSV render as a table. Large files are previewed from their first 1 MiB.
-- "Open" on a text file shows it in a full-page viewer in a new tab (`?bucket=…&key=…`, up to 10 MiB), since many objects are stored as `binary/octet-stream` and would otherwise download. Other files open directly from S3.
+- "Open" on a text file shows it in a full-page viewer in a new tab (up to 10 MiB), since many objects are stored as `binary/octet-stream` and would otherwise download. Other files open directly from S3.
 - Copy-to-clipboard buttons for full `s3://bucket/key` URIs
 - Light, dark, or system color theme, remembered per browser
 
@@ -25,7 +25,13 @@ s3://aind-open-data/some/prefix/
 https://aind-open-data.s3.us-west-2.amazonaws.com/some/prefix/
 ```
 
-The location is kept in the URL (`?bucket=…&prefix=…&n=…`), so links to a folder can be shared.
+The location is kept in the URL, so links can be shared. `path` is the bucket plus prefix or key, like an S3 URI without `s3://`; a trailing `/` means a folder, otherwise the file opens in the viewer. `region` and `n` (page size) are optional:
+
+```
+?path=aind-open-data/some/prefix/
+?path=aind-open-data/some/prefix/data_description.json
+?path=openneuro.org/ds000001/&region=us-east-1&n=50
+```
 
 Requirements on the bucket:
 
