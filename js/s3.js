@@ -82,9 +82,10 @@ export function parsePathParam(value) {
  * Build the page's query string. `path` is a prefix (ending in "/") or a key.
  * Slashes stay unescaped so links read like S3 URIs.
  */
-export function buildQuery({ bucket, path = "", region = "", pageSize = 100 }) {
+export function buildQuery({ bucket, path = "", region = "", pageSize = 100, query = "" }) {
   if (!bucket) return "";
   let q = `?path=${encodeKey(path ? `${bucket}/${path}` : bucket)}`;
+  if (query) q += `&q=${encodeURIComponent(query)}`;
   if (region) q += `&region=${encodeURIComponent(region)}`;
   if (pageSize !== 100) q += `&n=${pageSize}`;
   return q;
