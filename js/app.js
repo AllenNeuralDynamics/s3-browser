@@ -122,7 +122,7 @@ async function render() {
   document.title = uri ? `${uri} · S3 Browser` : "S3 Browser";
   if (!state.bucket) return;
   if (viewing) return renderFileView();
-  renderBreadcrumbs($("breadcrumbs"), state.prefix);
+  renderBreadcrumbs($("breadcrumbs"), state.prefix, "", $("copy-current"));
   await loadPage();
 }
 
@@ -180,8 +180,11 @@ function describeError(err) {
 
 // ---------- rendering ----------
 
-/** Breadcrumbs for a folder prefix, optionally ending in a file name. */
-function renderBreadcrumbs(nav, prefix, fileName = "") {
+/**
+ * Breadcrumbs for a folder prefix, optionally ending in a file name.
+ * `trailing` (the copy button) is placed right after the last crumb.
+ */
+function renderBreadcrumbs(nav, prefix, fileName = "", trailing = null) {
   nav.replaceChildren();
   const parts = prefix.split("/").filter(Boolean);
   const crumb = (label, prefix, current) => {
@@ -215,6 +218,7 @@ function renderBreadcrumbs(nav, prefix, fileName = "") {
     sep();
     crumb(fileName, null, true);
   }
+  if (trailing) nav.append(trailing);
 }
 
 function hrefFor(bucket, prefix) {
@@ -512,7 +516,7 @@ function openPreview(entry) {
 async function renderFileView() {
   const key = state.key;
   const slash = key.lastIndexOf("/");
-  renderBreadcrumbs($("viewer-breadcrumbs"), key.slice(0, slash + 1), key.slice(slash + 1));
+  renderBreadcrumbs($("viewer-breadcrumbs"), key.slice(0, slash + 1), key.slice(slash + 1), $("viewer-copy"));
   $("viewer-meta").textContent = "";
   $("viewer-raw").href = objectUrl(state.bucket, key, state.region);
   // HEAD gives the size (Content-Length is readable cross-origin); fall back to unknown.
