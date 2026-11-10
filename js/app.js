@@ -90,6 +90,15 @@ function navigate({ bucket, prefix, region }, push = true) {
   render();
 }
 
+function navigateToFile({ bucket, key, region }) {
+  state.bucket = bucket;
+  state.key = key;
+  state.prefix = parentPrefix(key);
+  state.region = region ?? state.region;
+  writeUrl(true);
+  render();
+}
+
 function resetPaging() {
   state.page = 0;
   state.tokens = [null];
@@ -176,24 +185,18 @@ function describeError(err) {
 }
 
 /**
- * A typed path without a trailing "/" may be a folder or an object. If it is an
- * object (and not also a folder), return its parent prefix; otherwise null.
+ * Whether a typed path without a trailing "/" names a folder (something exists
+ * under path/). If not, it is treated as a file and opened in the viewer.
  */
-async function resolvePath(bucket, path, region) {
-  if (!path || path.endsWith("/")) return null;
-  const first = async (prefix) => {
-    try {
-      const res = await fetch(listUrl({ bucket, prefix, region, pageSize: 1 }));
-      if (!res.ok) return null;
-      const r = parseListXml(new DOMParser().parseFromString(await res.text(), "application/xml"));
-      return [...r.folders, ...r.files][0]?.key ?? null;
-    } catch {
-      return null; // let the normal listing report the error
-    }
-  };
-  // The exact key sorts before any other key that starts with it, so it comes first.
-  const [inFolder, match] = await Promise.all([first(path + "/"), first(path)]);
-  return !inFolder && match === path ? parentPrefix(path) : null;
+async function isFolder(bucket, path, region) {
+  try {
+    const res = await fetch(listUrl({ bucket, prefix: path + "/", region, pageSize: 1 }));
+    if (!res.ok) return false;
+    const r = parseListXml(new DOMParser().parseFromString(await res.text(), "application/xml"));
+    return r.folders.length + r.files.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 // ---------- rendering ----------
@@ -533,15 +536,28 @@ async function renderFileView() {
   $("viewer-raw").href = objectUrl(state.bucket, key, state.region);
   // HEAD gives the size (Content-Length is readable cross-origin); fall back to unknown.
   let size = null;
+  let status = 0;
   try {
     const res = await fetch(objectUrl(state.bucket, key, state.region), { method: "HEAD" });
+    status = res.status;
     const len = res.ok ? res.headers.get("content-length") : null;
     if (len != null) size = Number(len);
   } catch {
-    /* size stays unknown */
+    /* size stays unknown; the GET below reports any error */
   }
   if (key !== state.key) return;
   if (size != null) $("viewer-meta").textContent = formatSize(size);
+  pageViewer.requestId++; // cancel any load still in flight
+  pageViewer.toggle.hidden = true;
+  pageViewer.notice.hidden = true;
+  if (status === 404 || status === 403) {
+    pageViewer.body.replaceChildren(textBlock(status === 404 ? "File not found." : "Access denied."));
+    return;
+  }
+  if (!isPreviewable(key)) {
+    pageViewer.body.replaceChildren(textBlock("No preview for this file type. Use “Raw file” to open or download it."));
+    return;
+  }
   await loadIntoViewer(pageViewer, key, size);
 }
 
@@ -587,7 +603,11 @@ function init() {
       return;
     }
     const region = $("region-input").value.trim() || loc.region;
-    resolvePath(loc.bucket, loc.path, region).then((prefix) => navigate({ bucket: loc.bucket, prefix: prefix ?? loc.prefix, region }));
+    const { bucket, path } = loc;
+    if (!path || path.endsWith("/")) return navigate({ bucket, prefix: path, region });
+    isFolder(bucket, path, region).then((folder) =>
+      folder ? navigate({ bucket, prefix: path, region }) : navigateToFile({ bucket, key: path, region }),
+    );
   });
 
   $("page-size").addEventListener("change", (e) => {
