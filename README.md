@@ -12,6 +12,7 @@ A static web page for browsing public (anonymous-read) Amazon S3 buckets as fold
 - Folder-style navigation over `/`-delimited prefixes, with breadcrumbs and browser back/forward
 - Paging with a configurable page size (1–1000 items per page)
 - Lexicographic order by default (S3's native order); size and date sorting within a page
+- Prefix search within a folder: S3 matches names that start with the typed text (case-sensitive) across the whole folder, not just the current page. Kept in the URL as `q`.
 - Previews for text files (txt, md, json, yaml, csv, tsv, xml, Zarr metadata, …). JSON is pretty-printed; CSV/TSV render as a table. Large files are previewed from their first 1 MiB.
 - "Open" on a text file shows it in a full-page viewer in a new tab (up to 10 MiB), since many objects are stored as `binary/octet-stream` and would otherwise download. Other files open directly from S3.
 - Copy-to-clipboard buttons for full `s3://bucket/key` URIs
