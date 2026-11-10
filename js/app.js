@@ -12,7 +12,7 @@ import {
   previewKind,
   s3Uri,
   sortEntries,
-} from "./s3.js";
+} from "./s3.js?v=dev"; // ?v= is replaced with the commit hash at deploy time
 
 const PREVIEW_BYTES = 1024 * 1024; // fetch at most 1 MiB for previews
 const CSV_MAX_ROWS = 500;
@@ -533,7 +533,6 @@ function init() {
     });
   }
 
-  for (const b of document.querySelectorAll(".copy-btn")) b.innerHTML = COPY_ICON;
   $("copy-current").addEventListener("click", (e) => copy(s3Uri(state.bucket, state.prefix), e.currentTarget));
 
   $("preview-close").addEventListener("click", () => $("preview").close());
