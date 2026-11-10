@@ -197,6 +197,10 @@ main {
 .breadcrumbs > * {
   display: inline-block; /* wrap between crumbs before breaking inside a name */
 }
+.breadcrumbs > .copy-btn {
+  margin-left: 8px;
+  vertical-align: 1px;
+}
 .breadcrumbs .sep {
   color: var(--muted);
   margin: 0 4px;
