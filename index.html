@@ -94,7 +94,7 @@
           <span id="viewer-meta" class="muted"></span>
           <button id="viewer-toggle" type="button" hidden>Raw</button>
           <button id="viewer-copy" class="copy-btn" type="button" title="Copy S3 URI" aria-label="Copy S3 URI"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-          <a id="viewer-raw" class="action-link" href="#" target="_blank" rel="noopener" title="Open the file directly from S3 (may download)">Raw file</a>
+          <a id="viewer-raw" class="action-link icon-link" href="#" target="_blank" rel="noopener" title="Raw file from S3 (may download)" aria-label="Raw file from S3 (may download)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
         </div>
         <div id="viewer-notice" class="preview-notice viewer-notice" hidden></div>
         <div id="viewer-body" class="preview-body viewer-body"></div>
@@ -109,9 +109,9 @@
         </div>
         <div class="preview-actions">
           <button id="preview-toggle" type="button" hidden>Raw</button>
+          <a id="preview-open" class="action-link icon-link" href="#" target="_blank" rel="noopener" title="View in a new tab" aria-label="View in a new tab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
           <button id="preview-copy" class="copy-btn" type="button" title="Copy S3 URI" aria-label="Copy S3 URI"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-          <a id="preview-open" href="#" target="_blank" rel="noopener" title="View in a new tab">Open</a>
-          <button id="preview-close" type="button" aria-label="Close preview">✕</button>
+          <button id="preview-close" class="icon-btn" type="button" title="Close" aria-label="Close preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </div>
       </div>
       <div id="preview-notice" class="preview-notice" hidden></div>
