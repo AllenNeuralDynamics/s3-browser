@@ -11,6 +11,7 @@ import {
   listUrl,
   objectUrl,
   parseDelimited,
+  parentPrefix,
   parseLocation,
   previewKind,
   s3Uri,
@@ -18,19 +19,25 @@ import {
 } from "../js/s3.js";
 
 test("parseLocation handles common input forms", () => {
-  assert.deepEqual(parseLocation("aind-open-data"), { bucket: "aind-open-data", prefix: "", region: "" });
-  assert.deepEqual(parseLocation("s3://aind-open-data/foo/bar"), { bucket: "aind-open-data", prefix: "foo/bar/", region: "" });
-  assert.deepEqual(parseLocation("aind-open-data/foo/"), { bucket: "aind-open-data", prefix: "foo/", region: "" });
-  assert.deepEqual(parseLocation("https://aind-open-data.s3.us-west-2.amazonaws.com/a/b/"), {
-    bucket: "aind-open-data",
-    prefix: "a/b/",
-    region: "us-west-2",
-  });
-  assert.deepEqual(parseLocation("https://aind-open-data.s3.amazonaws.com/a%20b/"), { bucket: "aind-open-data", prefix: "a b/", region: "" });
-  assert.deepEqual(parseLocation("https://s3.us-east-2.amazonaws.com/my.bucket/x"), { bucket: "my.bucket", prefix: "x/", region: "us-east-2" });
-  assert.deepEqual(parseLocation("https://s3.amazonaws.com/openneuro.org/"), { bucket: "openneuro.org", prefix: "", region: "" });
+  const loc = (s) => {
+    const r = parseLocation(s);
+    return r && [r.bucket, r.prefix, r.path, r.region];
+  };
+  assert.deepEqual(loc("aind-open-data"), ["aind-open-data", "", "", ""]);
+  assert.deepEqual(loc("s3://aind-open-data/foo/bar"), ["aind-open-data", "foo/bar/", "foo/bar", ""]);
+  assert.deepEqual(loc("aind-open-data/foo/"), ["aind-open-data", "foo/", "foo/", ""]);
+  assert.deepEqual(loc("https://aind-open-data.s3.us-west-2.amazonaws.com/a/b/"), ["aind-open-data", "a/b/", "a/b/", "us-west-2"]);
+  assert.deepEqual(loc("https://aind-open-data.s3.amazonaws.com/a%20b/x.json"), ["aind-open-data", "a b/x.json/", "a b/x.json", ""]);
+  assert.deepEqual(loc("https://s3.us-east-2.amazonaws.com/my.bucket/x"), ["my.bucket", "x/", "x", "us-east-2"]);
+  assert.deepEqual(loc("https://s3.amazonaws.com/openneuro.org/"), ["openneuro.org", "", "", ""]);
   assert.equal(parseLocation(""), null);
   assert.equal(parseLocation("https://example.com/foo"), null);
+});
+
+test("parentPrefix", () => {
+  assert.equal(parentPrefix("a/b/c.json"), "a/b/");
+  assert.equal(parentPrefix("c.json"), "");
+  assert.equal(parentPrefix("a/b/"), "a/b/");
 });
 
 test("endpoints use virtual-hosted style unless the bucket has dots", () => {

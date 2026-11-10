@@ -8,6 +8,7 @@ import {
   objectUrl,
   parseDelimited,
   parseListXml,
+  parentPrefix,
   parseLocation,
   previewKind,
   s3Uri,
@@ -176,6 +177,27 @@ function describeError(err) {
       }
       return `Error${err.code ? ` (${err.code})` : ""}: ${err.message}`;
   }
+}
+
+/**
+ * A typed path without a trailing "/" may be a folder or an object. If it is an
+ * object (and not also a folder), return its parent prefix; otherwise null.
+ */
+async function resolvePath(bucket, path, region) {
+  if (!path || path.endsWith("/")) return null;
+  const first = async (prefix) => {
+    try {
+      const res = await fetch(listUrl({ bucket, prefix, region, pageSize: 1 }));
+      if (!res.ok) return null;
+      const r = parseListXml(new DOMParser().parseFromString(await res.text(), "application/xml"));
+      return [...r.folders, ...r.files][0]?.key ?? null;
+    } catch {
+      return null; // let the normal listing report the error
+    }
+  };
+  // The exact key sorts before any other key that starts with it, so it comes first.
+  const [inFolder, match] = await Promise.all([first(path + "/"), first(path)]);
+  return !inFolder && match === path ? parentPrefix(path) : null;
 }
 
 // ---------- rendering ----------
@@ -570,8 +592,8 @@ function init() {
       toast("Enter a bucket name, s3:// URI, or S3 https URL");
       return;
     }
-    const regionField = $("region-input").value.trim();
-    navigate({ ...loc, region: regionField || loc.region });
+    const region = $("region-input").value.trim() || loc.region;
+    resolvePath(loc.bucket, loc.path, region).then((prefix) => navigate({ bucket: loc.bucket, prefix: prefix ?? loc.prefix, region }));
   });
 
   $("page-size").addEventListener("change", (e) => {

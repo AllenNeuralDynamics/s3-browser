@@ -19,7 +19,8 @@ const TEXT_FILENAMES = new Set([
  * Accepts: "bucket", "bucket/prefix", "s3://bucket/prefix",
  * "https://bucket.s3[.region].amazonaws.com/prefix",
  * "https://s3[.region].amazonaws.com/bucket/prefix".
- * A non-empty prefix is normalized to end with "/" so it is treated as a folder.
+ * A non-empty prefix is normalized to end with "/" so it is treated as a folder;
+ * the original is kept as `path` so callers can check whether it names an object.
  */
 export function parseLocation(input) {
   let s = (input || "").trim();
@@ -53,7 +54,13 @@ export function parseLocation(input) {
     rest = i < 0 ? "" : s.slice(i + 1);
   }
   if (!bucket) return null;
-  return { bucket, prefix: normalizePrefix(rest), region };
+  // `path` is the prefix as typed. Without a trailing "/" it may name an object.
+  return { bucket, prefix: normalizePrefix(rest), path: rest.replace(/^\/+/, ""), region };
+}
+
+/** The folder containing a key: "a/b/c.json" -> "a/b/", "c.json" -> "". */
+export function parentPrefix(key) {
+  return key.slice(0, key.lastIndexOf("/") + 1);
 }
 
 function cleanRegion(r) {
