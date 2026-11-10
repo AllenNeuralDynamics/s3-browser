@@ -34,6 +34,7 @@ const state = {
   bucket: "",
   prefix: "",
   key: "", // set in full-page file view
+  query: "", // prefix search within the current folder
   region: "",
   pageSize: 100,
   page: 0, // zero-based
@@ -51,13 +52,14 @@ function readUrl() {
   const loc = parsePathParam(p.get("path")) || { bucket: "", prefix: "", key: "" };
   return {
     ...loc,
+    query: loc.key ? "" : p.get("q") || "",
     region: (p.get("region") || "").trim(),
     pageSize: p.has("n") ? clampPageSize(p.get("n")) : storedPageSize(),
   };
 }
 
 function writeUrl(push) {
-  const qs = buildQuery({ ...state, path: state.key || state.prefix });
+  const qs = buildQuery({ ...state, path: state.key || state.prefix, query: state.key ? "" : state.query });
   const url = `${location.pathname}${qs}`;
   if (url === `${location.pathname}${location.search}`) return;
   (push ? history.pushState : history.replaceState).call(history, null, "", url);
@@ -85,6 +87,7 @@ function navigate({ bucket, prefix, region }, push = true) {
   state.bucket = bucket;
   state.prefix = normalizePrefix(prefix);
   state.key = "";
+  state.query = "";
   state.region = region ?? state.region;
   resetPaging();
   writeUrl(push);
@@ -111,6 +114,7 @@ function loadFromUrl() {
   state.bucket = u.bucket;
   state.prefix = u.prefix;
   state.key = u.key;
+  state.query = u.query;
   state.region = u.region;
   state.pageSize = u.pageSize;
   resetPaging();
@@ -123,6 +127,7 @@ async function render() {
   $("location-input").value = uri;
   $("region-input").value = state.region;
   syncPageSizeControl();
+  $("search-input").value = state.query;
   $("welcome").hidden = !!state.bucket;
   $("browser").hidden = !state.bucket || viewing;
   $("viewer").hidden = !viewing;
@@ -135,7 +140,9 @@ async function render() {
 
 async function loadPage() {
   const id = ++state.requestId;
-  const { bucket, prefix, region, pageSize, page } = state;
+  const { bucket, region, pageSize, page } = state;
+  // S3 matches the prefix server-side, so search covers the whole folder, not just this page.
+  const prefix = state.prefix + state.query;
   setStatus("Loading…");
   setPagingDisabled(true);
   let result;
@@ -161,7 +168,8 @@ async function loadPage() {
   if (result.nextToken) state.tokens[page + 1] = result.nextToken;
   renderRows();
   const n = state.entries.length;
-  setStatus(n ? "" : page === 0 ? "This folder is empty." : "No more items.");
+  const empty = state.query ? `Nothing in this folder starts with “${state.query}”.` : "This folder is empty.";
+  setStatus(n ? "" : page === 0 ? empty : "No more items.");
   updatePaging();
 }
 
@@ -470,6 +478,20 @@ function syncPageSizeControl() {
   custom.value = String(state.pageSize);
 }
 
+let searchTimer;
+function setQuery(value, immediate = false) {
+  clearTimeout(searchTimer);
+  const run = () => {
+    if (value === state.query) return;
+    state.query = value;
+    resetPaging();
+    writeUrl(false);
+    loadPage();
+  };
+  if (immediate) run();
+  else searchTimer = setTimeout(run, 250);
+}
+
 function setPageSize(n) {
   const size = clampPageSize(n);
   storePageSize(size);
@@ -662,6 +684,16 @@ function init() {
     } else setPageSize(e.target.value);
   });
   $("page-size-custom").addEventListener("change", (e) => setPageSize(e.target.value));
+
+  const search = $("search-input");
+  search.addEventListener("input", () => setQuery(search.value));
+  search.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") setQuery(search.value, true);
+    if (e.key === "Escape" && search.value) {
+      search.value = "";
+      setQuery("", true);
+    }
+  });
 
   $("first-page").addEventListener("click", () => goToPage(0));
   $("prev-page").addEventListener("click", () => goToPage(Math.max(0, state.page - 1)));

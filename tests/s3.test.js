@@ -129,6 +129,7 @@ test("path query parameter round-trips", () => {
   assert.equal(buildQuery({ bucket: "" }), "");
   assert.equal(buildQuery({ bucket: "b" }), "?path=b");
   assert.equal(buildQuery({ bucket: "b", path: "a/c/", region: "us-west-2", pageSize: 50 }), "?path=b/a/c/&region=us-west-2&n=50");
+  assert.equal(buildQuery({ bucket: "b", path: "a/", query: "x y&z" }), "?path=b/a/&q=x%20y%26z");
   // Characters that are special in query strings are escaped; slashes are not.
   const q = buildQuery({ bucket: "b", path: "x y/a+b&c=d#e?.csv" });
   assert.equal(q, "?path=b/x%20y/a%2Bb%26c%3Dd%23e%3F.csv");
