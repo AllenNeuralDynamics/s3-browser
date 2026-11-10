@@ -20,6 +20,10 @@ const PAGE_SIZE_KEY = "s3-browser:page-size";
 
 const $ = (id) => document.getElementById(id);
 
+const ICON_ATTRS = 'width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const COPY_ICON = `<svg ${ICON_ATTRS}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const CHECK_ICON = `<svg ${ICON_ATTRS}><path d="M20 6 9 17l-5-5"/></svg>`;
+
 const state = {
   bucket: "",
   prefix: "",
@@ -297,13 +301,14 @@ function copyButton(text) {
   const b = document.createElement("button");
   b.type = "button";
   b.className = "copy-btn";
-  b.textContent = "Copy URI";
-  b.title = text;
-  b.addEventListener("click", () => copy(text));
+  b.innerHTML = COPY_ICON;
+  b.title = `Copy ${text}`;
+  b.setAttribute("aria-label", `Copy ${text}`);
+  b.addEventListener("click", () => copy(text, b));
   return b;
 }
 
-async function copy(text) {
+async function copy(text, button) {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -321,6 +326,11 @@ async function copy(text) {
     }
   }
   toast(`Copied ${text}`);
+  if (button) {
+    button.innerHTML = CHECK_ICON;
+    clearTimeout(button._resetTimer);
+    button._resetTimer = setTimeout(() => (button.innerHTML = COPY_ICON), 1200);
+  }
 }
 
 let toastTimer;
@@ -523,13 +533,14 @@ function init() {
     });
   }
 
-  $("copy-current").addEventListener("click", () => copy(s3Uri(state.bucket, state.prefix)));
+  for (const b of document.querySelectorAll(".copy-btn")) b.innerHTML = COPY_ICON;
+  $("copy-current").addEventListener("click", (e) => copy(s3Uri(state.bucket, state.prefix), e.currentTarget));
 
   $("preview-close").addEventListener("click", () => $("preview").close());
   $("preview").addEventListener("click", (e) => {
     if (e.target === e.currentTarget) e.currentTarget.close(); // click on backdrop
   });
-  $("preview-copy").addEventListener("click", () => preview.entry && copy(s3Uri(state.bucket, preview.entry.key)));
+  $("preview-copy").addEventListener("click", () => (e) => preview.entry && copy(s3Uri(state.bucket, preview.entry.key), e.currentTarget));
   $("preview-toggle").addEventListener("click", () => {
     preview.showRaw = !preview.showRaw;
     renderPreview(preview.entry.size > PREVIEW_BYTES);
