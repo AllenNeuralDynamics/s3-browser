@@ -63,6 +63,33 @@ export function parentPrefix(key) {
   return key.slice(0, key.lastIndexOf("/") + 1);
 }
 
+/**
+ * Parse the page's ?path= value, "bucket/prefix/" or "bucket/key".
+ * A trailing "/" (or no part after the bucket) means a folder; otherwise it is
+ * a file, shown in the viewer. Returns { bucket, prefix, key } or null.
+ */
+export function parsePathParam(value) {
+  const v = (value || "").trim().replace(/^s3:\/\//i, "").replace(/^\/+/, "");
+  if (!v) return null;
+  const i = v.indexOf("/");
+  const bucket = i < 0 ? v : v.slice(0, i);
+  const rest = i < 0 ? "" : v.slice(i + 1);
+  if (!rest || rest.endsWith("/")) return { bucket, prefix: rest, key: "" };
+  return { bucket, prefix: parentPrefix(rest), key: rest };
+}
+
+/**
+ * Build the page's query string. `path` is a prefix (ending in "/") or a key.
+ * Slashes stay unescaped so links read like S3 URIs.
+ */
+export function buildQuery({ bucket, path = "", region = "", pageSize = 100 }) {
+  if (!bucket) return "";
+  let q = `?path=${encodeKey(path ? `${bucket}/${path}` : bucket)}`;
+  if (region) q += `&region=${encodeURIComponent(region)}`;
+  if (pageSize !== 100) q += `&n=${pageSize}`;
+  return q;
+}
+
 function cleanRegion(r) {
   return r && r !== "external-1" && r !== "website" ? r : "";
 }

@@ -1,4 +1,5 @@
 import {
+  buildQuery,
   clampPageSize,
   displayName,
   formatSize,
@@ -10,6 +11,7 @@ import {
   parseListXml,
   parentPrefix,
   parseLocation,
+  parsePathParam,
   previewKind,
   s3Uri,
   sortEntries,
@@ -45,23 +47,17 @@ const state = {
 
 function readUrl() {
   const p = new URLSearchParams(location.search);
+  const loc = parsePathParam(p.get("path")) || { bucket: "", prefix: "", key: "" };
   return {
-    bucket: (p.get("bucket") || "").trim(),
-    prefix: normalizePrefix(p.get("prefix") || ""),
-    key: p.get("key") || "",
+    ...loc,
     region: (p.get("region") || "").trim(),
     pageSize: p.has("n") ? clampPageSize(p.get("n")) : storedPageSize(),
   };
 }
 
 function writeUrl(push) {
-  const p = new URLSearchParams();
-  if (state.bucket) p.set("bucket", state.bucket);
-  if (state.prefix) p.set("prefix", state.prefix);
-  if (state.region) p.set("region", state.region);
-  if (state.bucket && state.pageSize !== 100) p.set("n", String(state.pageSize));
-  const qs = p.toString();
-  const url = `${location.pathname}${qs ? "?" + qs : ""}`;
+  const qs = buildQuery({ ...state, path: state.key || state.prefix });
+  const url = `${location.pathname}${qs}`;
   if (url === `${location.pathname}${location.search}`) return;
   (push ? history.pushState : history.replaceState).call(history, null, "", url);
 }
@@ -244,17 +240,11 @@ function renderBreadcrumbs(nav, prefix, fileName = "", trailing = null) {
 }
 
 function hrefFor(bucket, prefix) {
-  const p = new URLSearchParams({ bucket });
-  if (prefix) p.set("prefix", prefix);
-  if (state.region) p.set("region", state.region);
-  if (state.pageSize !== 100) p.set("n", String(state.pageSize));
-  return `?${p}`;
+  return buildQuery({ bucket, path: prefix, region: state.region, pageSize: state.pageSize });
 }
 
 function viewHref(bucket, key) {
-  const p = new URLSearchParams({ bucket, key });
-  if (state.region) p.set("region", state.region);
-  return `?${p}`;
+  return buildQuery({ bucket, path: key, region: state.region });
 }
 
 function isModified(e) {
@@ -448,7 +438,7 @@ function setPageSize(n) {
 // ---------- file viewer (preview dialog and full-page view) ----------
 
 // A viewer renders one text file into a set of elements. The preview dialog
-// and the full-page view (?bucket=…&key=…) each have one.
+// and the full-page view (?path=bucket/key) each have one.
 function makeViewer(ids, maxBytes, maxRows) {
   return {
     body: $(ids.body),

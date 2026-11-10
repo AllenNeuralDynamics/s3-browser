@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildQuery,
   bucketEndpoint,
   clampPageSize,
   displayName,
@@ -13,6 +14,7 @@ import {
   parseDelimited,
   parentPrefix,
   parseLocation,
+  parsePathParam,
   previewKind,
   s3Uri,
   sortEntries,
@@ -113,4 +115,22 @@ test("parseDelimited handles quotes and CRLF", () => {
     ["1", "2"],
   ]);
   assert.equal(parseDelimited("a\nb\nc\nd\n", ",", 2).length, 2);
+});
+
+test("path query parameter round-trips", () => {
+  assert.deepEqual(parsePathParam("aind-open-data"), { bucket: "aind-open-data", prefix: "", key: "" });
+  assert.deepEqual(parsePathParam("aind-open-data/"), { bucket: "aind-open-data", prefix: "", key: "" });
+  assert.deepEqual(parsePathParam("b/a/c/"), { bucket: "b", prefix: "a/c/", key: "" });
+  assert.deepEqual(parsePathParam("b/a/c.json"), { bucket: "b", prefix: "a/", key: "a/c.json" });
+  assert.deepEqual(parsePathParam("s3://b/x.txt"), { bucket: "b", prefix: "", key: "x.txt" });
+  assert.equal(parsePathParam(""), null);
+  assert.equal(parsePathParam(null), null);
+
+  assert.equal(buildQuery({ bucket: "" }), "");
+  assert.equal(buildQuery({ bucket: "b" }), "?path=b");
+  assert.equal(buildQuery({ bucket: "b", path: "a/c/", region: "us-west-2", pageSize: 50 }), "?path=b/a/c/&region=us-west-2&n=50");
+  // Characters that are special in query strings are escaped; slashes are not.
+  const q = buildQuery({ bucket: "b", path: "x y/a+b&c=d#e?.csv" });
+  assert.equal(q, "?path=b/x%20y/a%2Bb%26c%3Dd%23e%3F.csv");
+  assert.deepEqual(parsePathParam(new URLSearchParams(q).get("path")), { bucket: "b", prefix: "x y/", key: "x y/a+b&c=d#e?.csv" });
 });
