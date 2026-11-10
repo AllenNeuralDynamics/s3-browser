@@ -11,6 +11,7 @@ A static web page for browsing public (anonymous-read) Amazon S3 buckets as fold
 - Lexicographic order by default (S3's native order); size and date sorting within a page
 - Previews for text files (txt, md, json, yaml, csv, tsv, xml, Zarr metadata, …). JSON is pretty-printed; CSV/TSV render as a table. Large files are previewed from their first 1 MiB.
 - Copy-to-clipboard buttons for full `s3://bucket/key` URIs
+- Light, dark, or system color theme, remembered per browser
 
 ## Usage
 

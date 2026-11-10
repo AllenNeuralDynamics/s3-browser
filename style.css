@@ -15,6 +15,8 @@
   color-scheme: light;
 }
 
+/* Dark tokens apply when the OS prefers dark and no theme is forced,
+   or when dark is chosen explicitly. Keep the two blocks in sync. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #14171c;
@@ -31,6 +33,22 @@
     --row-hover: #20262f;
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14171c;
+  --surface: #1c2027;
+  --border: #2e333d;
+  --text: #e3e6eb;
+  --muted: #98a0ad;
+  --accent: #5b9dff;
+  --accent-text: #0b0d10;
+  --folder: #e8b04d;
+  --file: #7d8696;
+  --error-bg: #3a1c1c;
+  --error-text: #ffb3b3;
+  --row-hover: #20262f;
+  color-scheme: dark;
 }
 
 * {
@@ -458,6 +476,12 @@ footer {
     flex-wrap: wrap;
     flex-basis: 100%;
   }
+  .theme-switch {
+    order: 1;
+  }
+  .location-form {
+    order: 2;
+  }
   #location-input {
     flex-basis: 100%;
   }
@@ -467,4 +491,36 @@ footer {
   .col-modified {
     display: none;
   }
+}
+
+/* ---------- theme switch ---------- */
+
+.theme-switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-left: auto;
+}
+.theme-switch button {
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--muted);
+  padding: 5px 8px;
+  display: inline-flex;
+  align-items: center;
+}
+.theme-switch button + button {
+  border-left: 1px solid var(--border);
+}
+.theme-switch button:hover {
+  color: var(--text);
+}
+.theme-switch button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+}
+.theme-switch svg {
+  display: block;
 }
