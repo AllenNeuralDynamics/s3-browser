@@ -87,6 +87,18 @@
         </div>
         <p class="hint">S3 lists keys in lexicographic order. Sorting by size or date applies to the current page only.</p>
       </section>
+
+      <section id="viewer" class="viewer" hidden>
+        <div class="pathbar">
+          <nav id="viewer-breadcrumbs" class="breadcrumbs" aria-label="Path"></nav>
+          <span id="viewer-meta" class="muted"></span>
+          <button id="viewer-toggle" type="button" hidden>Raw</button>
+          <button id="viewer-copy" class="copy-btn" type="button" title="Copy S3 URI" aria-label="Copy S3 URI"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <a id="viewer-raw" class="action-link" href="#" target="_blank" rel="noopener" title="Open the file directly from S3 (may download)">Raw file</a>
+        </div>
+        <div id="viewer-notice" class="preview-notice viewer-notice" hidden></div>
+        <div id="viewer-body" class="preview-body viewer-body"></div>
+      </section>
     </main>
 
     <dialog id="preview">
@@ -98,7 +110,7 @@
         <div class="preview-actions">
           <button id="preview-toggle" type="button" hidden>Raw</button>
           <button id="preview-copy" class="copy-btn" type="button" title="Copy S3 URI" aria-label="Copy S3 URI"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-          <a id="preview-download" href="#" target="_blank" rel="noopener">Open</a>
+          <a id="preview-open" href="#" target="_blank" rel="noopener" title="View in a new tab">Open</a>
           <button id="preview-close" type="button" aria-label="Close preview">✕</button>
         </div>
       </div>

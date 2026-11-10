@@ -16,6 +16,8 @@ import {
 
 const PREVIEW_BYTES = 1024 * 1024; // fetch at most 1 MiB for previews
 const CSV_MAX_ROWS = 500;
+const VIEW_BYTES = 10 * 1024 * 1024; // full-page view fetches at most 10 MiB
+const VIEW_CSV_MAX_ROWS = 5000;
 const PAGE_SIZE_KEY = "s3-browser:page-size";
 
 const $ = (id) => document.getElementById(id);
@@ -27,6 +29,7 @@ const CHECK_ICON = `<svg ${ICON_ATTRS}><path d="M20 6 9 17l-5-5"/></svg>`;
 const state = {
   bucket: "",
   prefix: "",
+  key: "", // set in full-page file view
   region: "",
   pageSize: 100,
   page: 0, // zero-based
@@ -44,6 +47,7 @@ function readUrl() {
   return {
     bucket: (p.get("bucket") || "").trim(),
     prefix: normalizePrefix(p.get("prefix") || ""),
+    key: p.get("key") || "",
     region: (p.get("region") || "").trim(),
     pageSize: p.has("n") ? clampPageSize(p.get("n")) : storedPageSize(),
   };
@@ -82,6 +86,7 @@ function storePageSize(n) {
 function navigate({ bucket, prefix, region }, push = true) {
   state.bucket = bucket;
   state.prefix = normalizePrefix(prefix);
+  state.key = "";
   state.region = region ?? state.region;
   resetPaging();
   writeUrl(push);
@@ -98,6 +103,7 @@ function loadFromUrl() {
   const u = readUrl();
   state.bucket = u.bucket;
   state.prefix = u.prefix;
+  state.key = u.key;
   state.region = u.region;
   state.pageSize = u.pageSize;
   resetPaging();
@@ -105,14 +111,18 @@ function loadFromUrl() {
 }
 
 async function render() {
-  $("location-input").value = state.bucket ? s3Uri(state.bucket, state.prefix) : "";
+  const viewing = !!(state.bucket && state.key);
+  const uri = state.bucket ? s3Uri(state.bucket, viewing ? state.key : state.prefix) : "";
+  $("location-input").value = uri;
   $("region-input").value = state.region;
   syncPageSizeControl();
   $("welcome").hidden = !!state.bucket;
-  $("browser").hidden = !state.bucket;
-  document.title = state.bucket ? `${s3Uri(state.bucket, state.prefix)} · S3 Browser` : "S3 Browser";
+  $("browser").hidden = !state.bucket || viewing;
+  $("viewer").hidden = !viewing;
+  document.title = uri ? `${uri} · S3 Browser` : "S3 Browser";
   if (!state.bucket) return;
-  renderBreadcrumbs();
+  if (viewing) return renderFileView();
+  renderBreadcrumbs($("breadcrumbs"), state.prefix);
   await loadPage();
 }
 
@@ -170,10 +180,10 @@ function describeError(err) {
 
 // ---------- rendering ----------
 
-function renderBreadcrumbs() {
-  const nav = $("breadcrumbs");
+/** Breadcrumbs for a folder prefix, optionally ending in a file name. */
+function renderBreadcrumbs(nav, prefix, fileName = "") {
   nav.replaceChildren();
-  const parts = state.prefix.split("/").filter(Boolean);
+  const parts = prefix.split("/").filter(Boolean);
   const crumb = (label, prefix, current) => {
     const el = document.createElement(current ? "span" : "a");
     el.textContent = label;
@@ -188,16 +198,23 @@ function renderBreadcrumbs() {
     }
     nav.append(el);
   };
-  crumb(state.bucket, "", parts.length === 0);
+  const sep = () => {
+    const el = document.createElement("span");
+    el.className = "sep";
+    el.textContent = "/";
+    nav.append(el);
+  };
+  crumb(state.bucket, "", !fileName && parts.length === 0);
   let acc = "";
   parts.forEach((part, i) => {
     acc += part + "/";
-    const sep = document.createElement("span");
-    sep.className = "sep";
-    sep.textContent = "/";
-    nav.append(sep);
-    crumb(part, acc, i === parts.length - 1);
+    sep();
+    crumb(part, acc, !fileName && i === parts.length - 1);
   });
+  if (fileName) {
+    sep();
+    crumb(fileName, null, true);
+  }
 }
 
 function hrefFor(bucket, prefix) {
@@ -205,6 +222,12 @@ function hrefFor(bucket, prefix) {
   if (prefix) p.set("prefix", prefix);
   if (state.region) p.set("region", state.region);
   if (state.pageSize !== 100) p.set("n", String(state.pageSize));
+  return `?${p}`;
+}
+
+function viewHref(bucket, key) {
+  const p = new URLSearchParams({ bucket, key });
+  if (state.region) p.set("region", state.region);
   return `?${p}`;
 }
 
@@ -278,13 +301,16 @@ function renderRow(entry) {
   tdAct.className = "col-actions";
   tdAct.append(copyButton(s3Uri(state.bucket, entry.key)));
   if (entry.type === "file") {
+    // Text files open in the in-app viewer: many are stored as binary/octet-stream,
+    // which browsers download, and S3 rejects content-type overrides on anonymous requests.
+    const viewable = isPreviewable(entry.key);
     const a = document.createElement("a");
-    a.href = objectUrl(state.bucket, entry.key, state.region);
+    a.href = viewable ? viewHref(state.bucket, entry.key) : objectUrl(state.bucket, entry.key, state.region);
     a.target = "_blank";
     a.rel = "noopener";
     a.className = "action-link";
     a.textContent = "Open";
-    a.title = "Open the HTTPS URL in a new tab";
+    a.title = viewable ? "View in a new tab" : "Open the HTTPS URL in a new tab";
     tdAct.append(a);
   }
 
@@ -393,76 +419,114 @@ function setPageSize(n) {
   loadPage();
 }
 
-// ---------- preview ----------
+// ---------- file viewer (preview dialog and full-page view) ----------
 
-const preview = { entry: null, raw: "", kind: "text", showRaw: false, requestId: 0 };
-
-async function openPreview(entry) {
-  const id = ++preview.requestId;
-  const dlg = $("preview");
-  const url = objectUrl(state.bucket, entry.key, state.region);
-  preview.entry = entry;
-  preview.kind = previewKind(entry.key);
-  preview.showRaw = false;
-  $("preview-name").textContent = entry.key.split("/").pop();
-  $("preview-meta").textContent = formatSize(entry.size);
-  $("preview-download").href = url;
-  $("preview-toggle").hidden = true;
-  $("preview-notice").hidden = true;
-  $("preview-body").replaceChildren(textBlock("Loading…"));
-  if (!dlg.open) dlg.showModal();
-
-  const truncated = entry.size > PREVIEW_BYTES;
-  try {
-    const res = await fetch(url, truncated ? { headers: { Range: `bytes=0-${PREVIEW_BYTES - 1}` } } : {});
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    if (id !== preview.requestId) return;
-    preview.raw = new TextDecoder("utf-8", { fatal: false }).decode(buf);
-  } catch (err) {
-    if (id !== preview.requestId) return;
-    $("preview-body").replaceChildren(textBlock(`Could not load preview: ${err.message}`));
-    return;
-  }
-  if (truncated) {
-    showNotice(`Showing the first ${formatSize(PREVIEW_BYTES)} of ${formatSize(entry.size)}.`);
-  }
-  $("preview-toggle").hidden = preview.kind === "text";
-  renderPreview(truncated);
+// A viewer renders one text file into a set of elements. The preview dialog
+// and the full-page view (?bucket=…&key=…) each have one.
+function makeViewer(ids, maxBytes, maxRows) {
+  return {
+    body: $(ids.body),
+    notice: $(ids.notice),
+    toggle: $(ids.toggle),
+    maxBytes,
+    maxRows,
+    key: "",
+    size: null, // bytes, or null if unknown
+    raw: "",
+    truncated: false,
+    kind: "text",
+    showRaw: false,
+    requestId: 0,
+  };
 }
 
-function renderPreview(truncated) {
-  const body = $("preview-body");
-  $("preview-toggle").textContent = preview.showRaw ? "Formatted" : "Raw";
-  if (preview.showRaw || preview.kind === "text") {
-    body.replaceChildren(textBlock(preview.raw));
+const dialogViewer = makeViewer({ body: "preview-body", notice: "preview-notice", toggle: "preview-toggle" }, PREVIEW_BYTES, CSV_MAX_ROWS);
+const pageViewer = makeViewer({ body: "viewer-body", notice: "viewer-notice", toggle: "viewer-toggle" }, VIEW_BYTES, VIEW_CSV_MAX_ROWS);
+
+/** Fetch up to v.maxBytes of a file and render it. size may be null (unknown). */
+async function loadIntoViewer(v, key, size) {
+  const id = ++v.requestId;
+  v.key = key;
+  v.size = size;
+  v.kind = previewKind(key);
+  v.showRaw = false;
+  v.toggle.hidden = true;
+  v.notice.hidden = true;
+  v.body.replaceChildren(textBlock("Loading…"));
+  try {
+    const res = await fetch(objectUrl(state.bucket, key, state.region), { headers: { Range: `bytes=0-${v.maxBytes - 1}` } });
+    if (res.status === 416) {
+      v.raw = ""; // empty object: any byte range is unsatisfiable
+    } else if (!res.ok) {
+      throw new Error(res.status === 403 ? "access denied" : res.status === 404 ? "file not found" : `HTTP ${res.status}`);
+    } else {
+      const buf = await res.arrayBuffer();
+      v.raw = new TextDecoder("utf-8", { fatal: false }).decode(buf.byteLength > v.maxBytes ? buf.slice(0, v.maxBytes) : buf);
+      v.truncated = size != null ? size > v.maxBytes : buf.byteLength >= v.maxBytes;
+    }
+  } catch (err) {
+    if (id !== v.requestId) return;
+    v.body.replaceChildren(textBlock(`Could not load file: ${err.message}`));
     return;
   }
-  if (preview.kind === "json") {
-    if (truncated) {
-      body.replaceChildren(textBlock(preview.raw));
-      return;
-    }
+  if (id !== v.requestId) return;
+  v.toggle.hidden = v.kind === "text";
+  renderViewer(v);
+}
+
+function renderViewer(v) {
+  v.toggle.textContent = v.showRaw ? "Formatted" : "Raw";
+  const notes = [];
+  if (v.truncated) notes.push(`Showing the first ${formatSize(v.maxBytes)}${v.size != null ? ` of ${formatSize(v.size)}` : ""}.`);
+  const show = (el) => {
+    v.body.replaceChildren(el);
+    v.notice.textContent = notes.join(" ");
+    v.notice.hidden = !notes.length;
+  };
+  if (v.showRaw || v.kind === "text") return show(textBlock(v.raw));
+  if (v.kind === "json") {
+    if (v.truncated) return show(textBlock(v.raw));
     try {
-      body.replaceChildren(textBlock(JSON.stringify(JSON.parse(preview.raw), null, 2)));
+      return show(textBlock(JSON.stringify(JSON.parse(v.raw), null, 2)));
     } catch {
-      body.replaceChildren(textBlock(preview.raw));
+      return show(textBlock(v.raw));
     }
-    return;
   }
   // csv / tsv
-  let text = preview.raw;
-  if (truncated) text = text.slice(0, text.lastIndexOf("\n") + 1); // drop partial last line
-  const rows = parseDelimited(text, preview.kind === "tsv" ? "\t" : ",", CSV_MAX_ROWS + 1);
-  const shown = rows.slice(0, CSV_MAX_ROWS + 1);
-  if (rows.length > CSV_MAX_ROWS) showNotice(`Showing the header and first ${CSV_MAX_ROWS} rows.${truncated ? ` File is ${formatSize(preview.entry.size)}.` : ""}`);
-  body.replaceChildren(csvTable(shown));
+  let text = v.raw;
+  if (v.truncated) text = text.slice(0, text.lastIndexOf("\n") + 1); // drop partial last line
+  const rows = parseDelimited(text, v.kind === "tsv" ? "\t" : ",", v.maxRows + 1);
+  if (rows.length > v.maxRows) notes.push(`Showing the header and first ${v.maxRows.toLocaleString()} rows.`);
+  show(csvTable(rows));
 }
 
-function showNotice(msg) {
-  const el = $("preview-notice");
-  el.textContent = msg;
-  el.hidden = false;
+function openPreview(entry) {
+  const dlg = $("preview");
+  $("preview-name").textContent = entry.key.split("/").pop();
+  $("preview-meta").textContent = formatSize(entry.size);
+  $("preview-open").href = viewHref(state.bucket, entry.key);
+  if (!dlg.open) dlg.showModal();
+  loadIntoViewer(dialogViewer, entry.key, entry.size);
+}
+
+async function renderFileView() {
+  const key = state.key;
+  const slash = key.lastIndexOf("/");
+  renderBreadcrumbs($("viewer-breadcrumbs"), key.slice(0, slash + 1), key.slice(slash + 1));
+  $("viewer-meta").textContent = "";
+  $("viewer-raw").href = objectUrl(state.bucket, key, state.region);
+  // HEAD gives the size (Content-Length is readable cross-origin); fall back to unknown.
+  let size = null;
+  try {
+    const res = await fetch(objectUrl(state.bucket, key, state.region), { method: "HEAD" });
+    const len = res.ok ? res.headers.get("content-length") : null;
+    if (len != null) size = Number(len);
+  } catch {
+    /* size stays unknown */
+  }
+  if (key !== state.key) return;
+  if (size != null) $("viewer-meta").textContent = formatSize(size);
+  await loadIntoViewer(pageViewer, key, size);
 }
 
 function textBlock(text) {
@@ -496,7 +560,6 @@ function csvTable(rows) {
   table.append(thead, tbody);
   return table;
 }
-
 // ---------- wiring ----------
 
 function init() {
@@ -539,11 +602,14 @@ function init() {
   $("preview").addEventListener("click", (e) => {
     if (e.target === e.currentTarget) e.currentTarget.close(); // click on backdrop
   });
-  $("preview-copy").addEventListener("click", () => (e) => preview.entry && copy(s3Uri(state.bucket, preview.entry.key), e.currentTarget));
-  $("preview-toggle").addEventListener("click", () => {
-    preview.showRaw = !preview.showRaw;
-    renderPreview(preview.entry.size > PREVIEW_BYTES);
-  });
+  $("preview-copy").addEventListener("click", (e) => dialogViewer.key && copy(s3Uri(state.bucket, dialogViewer.key), e.currentTarget));
+  $("viewer-copy").addEventListener("click", (e) => copy(s3Uri(state.bucket, state.key), e.currentTarget));
+  for (const v of [dialogViewer, pageViewer]) {
+    v.toggle.addEventListener("click", () => {
+      v.showRaw = !v.showRaw;
+      renderViewer(v);
+    });
+  }
 
   // Example links and home link: handle in-app instead of full reload.
   document.addEventListener("click", (e) => {
