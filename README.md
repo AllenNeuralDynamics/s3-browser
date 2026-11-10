@@ -46,4 +46,4 @@ Unit tests for the helpers in `js/s3.js` use Node's built-in test runner (Node 2
 node --test
 ```
 
-GitHub Pages serves the `main` branch root. See [PLAN.md](PLAN.md) for direction.
+Pushes to `main` deploy to GitHub Pages via [.github/workflows/pages.yml](.github/workflows/pages.yml), which replaces `?v=dev` in asset URLs with the commit hash so browsers never mix cached old files with new ones. Reference any new script or stylesheet with `?v=dev`. See [PLAN.md](PLAN.md) for direction.
