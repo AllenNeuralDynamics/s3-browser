@@ -27,6 +27,7 @@ const $ = (id) => document.getElementById(id);
 
 const ICON_ATTRS = 'width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 const COPY_ICON = `<svg ${ICON_ATTRS}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const OPEN_ICON = `<svg ${ICON_ATTRS}><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`;
 const CHECK_ICON = `<svg ${ICON_ATTRS}><path d="M20 6 9 17l-5-5"/></svg>`;
 
 const state = {
@@ -318,7 +319,7 @@ function renderRow(entry) {
 
   const tdAct = document.createElement("td");
   tdAct.className = "col-actions";
-  tdAct.append(copyButton(s3Uri(state.bucket, entry.key)));
+  // Open (files only) comes first so the copy button is always rightmost.
   if (entry.type === "file") {
     // Text files open in the in-app viewer: many are stored as binary/octet-stream,
     // which browsers download, and S3 rejects content-type overrides on anonymous requests.
@@ -327,11 +328,13 @@ function renderRow(entry) {
     a.href = viewable ? viewHref(state.bucket, entry.key) : objectUrl(state.bucket, entry.key, state.region);
     a.target = "_blank";
     a.rel = "noopener";
-    a.className = "action-link";
-    a.textContent = "Open";
+    a.className = "action-link icon-link";
+    a.innerHTML = OPEN_ICON;
     a.title = viewable ? "View in a new tab" : "Open the HTTPS URL in a new tab";
+    a.setAttribute("aria-label", a.title);
     tdAct.append(a);
   }
+  tdAct.append(copyButton(s3Uri(state.bucket, entry.key)));
 
   tr.append(tdName, tdSize, tdMod, tdAct);
   return tr;
