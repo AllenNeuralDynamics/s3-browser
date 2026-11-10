@@ -318,8 +318,9 @@ main {
   text-decoration: none;
   border-color: var(--muted);
 }
-/* Icon-only buttons and links (copy, open) */
+/* Icon-only buttons and links (copy, open, download, close) */
 .copy-btn,
+.icon-btn,
 .icon-link {
   display: inline-flex;
   align-items: center;
@@ -329,10 +330,12 @@ main {
   color: var(--muted);
 }
 .copy-btn:hover,
+.icon-btn:hover,
 .icon-link:hover {
   color: var(--text);
 }
 .copy-btn svg,
+.icon-btn svg,
 .icon-link svg {
   display: block;
 }
@@ -417,13 +420,6 @@ dialog::backdrop {
   display: flex;
   gap: 6px;
   align-items: center;
-}
-.preview-actions a {
-  font-size: 12px;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
 }
 .preview-notice {
   padding: 6px 14px;
