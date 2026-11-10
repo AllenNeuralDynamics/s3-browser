@@ -229,14 +229,12 @@ main {
   color: var(--muted);
 }
 .search-input {
-  width: 240px;
+  flex: 1 1 240px; /* fills the row; the paging controls keep their size */
+  min-width: 0;
   font-family: var(--mono);
 }
 #page-size-custom {
   width: 80px;
-}
-.spacer {
-  flex: 1;
 }
 .page-info {
   color: var(--muted);
@@ -520,8 +518,7 @@ footer {
     flex: 1;
   }
   .search-input {
-    flex: 1 1 100%;
-    width: auto;
+    flex-basis: 100%;
   }
   .col-modified {
     display: none;
