@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildQuery,
   bucketEndpoint,
   clampPageSize,
   displayName,
@@ -11,26 +12,34 @@ import {
   listUrl,
   objectUrl,
   parseDelimited,
+  parentPrefix,
   parseLocation,
+  parsePathParam,
   previewKind,
   s3Uri,
   sortEntries,
 } from "../js/s3.js";
 
 test("parseLocation handles common input forms", () => {
-  assert.deepEqual(parseLocation("aind-open-data"), { bucket: "aind-open-data", prefix: "", region: "" });
-  assert.deepEqual(parseLocation("s3://aind-open-data/foo/bar"), { bucket: "aind-open-data", prefix: "foo/bar/", region: "" });
-  assert.deepEqual(parseLocation("aind-open-data/foo/"), { bucket: "aind-open-data", prefix: "foo/", region: "" });
-  assert.deepEqual(parseLocation("https://aind-open-data.s3.us-west-2.amazonaws.com/a/b/"), {
-    bucket: "aind-open-data",
-    prefix: "a/b/",
-    region: "us-west-2",
-  });
-  assert.deepEqual(parseLocation("https://aind-open-data.s3.amazonaws.com/a%20b/"), { bucket: "aind-open-data", prefix: "a b/", region: "" });
-  assert.deepEqual(parseLocation("https://s3.us-east-2.amazonaws.com/my.bucket/x"), { bucket: "my.bucket", prefix: "x/", region: "us-east-2" });
-  assert.deepEqual(parseLocation("https://s3.amazonaws.com/openneuro.org/"), { bucket: "openneuro.org", prefix: "", region: "" });
+  const loc = (s) => {
+    const r = parseLocation(s);
+    return r && [r.bucket, r.prefix, r.path, r.region];
+  };
+  assert.deepEqual(loc("aind-open-data"), ["aind-open-data", "", "", ""]);
+  assert.deepEqual(loc("s3://aind-open-data/foo/bar"), ["aind-open-data", "foo/bar/", "foo/bar", ""]);
+  assert.deepEqual(loc("aind-open-data/foo/"), ["aind-open-data", "foo/", "foo/", ""]);
+  assert.deepEqual(loc("https://aind-open-data.s3.us-west-2.amazonaws.com/a/b/"), ["aind-open-data", "a/b/", "a/b/", "us-west-2"]);
+  assert.deepEqual(loc("https://aind-open-data.s3.amazonaws.com/a%20b/x.json"), ["aind-open-data", "a b/x.json/", "a b/x.json", ""]);
+  assert.deepEqual(loc("https://s3.us-east-2.amazonaws.com/my.bucket/x"), ["my.bucket", "x/", "x", "us-east-2"]);
+  assert.deepEqual(loc("https://s3.amazonaws.com/openneuro.org/"), ["openneuro.org", "", "", ""]);
   assert.equal(parseLocation(""), null);
   assert.equal(parseLocation("https://example.com/foo"), null);
+});
+
+test("parentPrefix", () => {
+  assert.equal(parentPrefix("a/b/c.json"), "a/b/");
+  assert.equal(parentPrefix("c.json"), "");
+  assert.equal(parentPrefix("a/b/"), "a/b/");
 });
 
 test("endpoints use virtual-hosted style unless the bucket has dots", () => {
@@ -106,4 +115,22 @@ test("parseDelimited handles quotes and CRLF", () => {
     ["1", "2"],
   ]);
   assert.equal(parseDelimited("a\nb\nc\nd\n", ",", 2).length, 2);
+});
+
+test("path query parameter round-trips", () => {
+  assert.deepEqual(parsePathParam("aind-open-data"), { bucket: "aind-open-data", prefix: "", key: "" });
+  assert.deepEqual(parsePathParam("aind-open-data/"), { bucket: "aind-open-data", prefix: "", key: "" });
+  assert.deepEqual(parsePathParam("b/a/c/"), { bucket: "b", prefix: "a/c/", key: "" });
+  assert.deepEqual(parsePathParam("b/a/c.json"), { bucket: "b", prefix: "a/", key: "a/c.json" });
+  assert.deepEqual(parsePathParam("s3://b/x.txt"), { bucket: "b", prefix: "", key: "x.txt" });
+  assert.equal(parsePathParam(""), null);
+  assert.equal(parsePathParam(null), null);
+
+  assert.equal(buildQuery({ bucket: "" }), "");
+  assert.equal(buildQuery({ bucket: "b" }), "?path=b");
+  assert.equal(buildQuery({ bucket: "b", path: "a/c/", region: "us-west-2", pageSize: 50 }), "?path=b/a/c/&region=us-west-2&n=50");
+  // Characters that are special in query strings are escaped; slashes are not.
+  const q = buildQuery({ bucket: "b", path: "x y/a+b&c=d#e?.csv" });
+  assert.equal(q, "?path=b/x%20y/a%2Bb%26c%3Dd%23e%3F.csv");
+  assert.deepEqual(parsePathParam(new URLSearchParams(q).get("path")), { bucket: "b", prefix: "x y/", key: "x y/a+b&c=d#e?.csv" });
 });

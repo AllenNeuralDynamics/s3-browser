@@ -1,4 +1,5 @@
 import {
+  buildQuery,
   clampPageSize,
   displayName,
   formatSize,
@@ -8,7 +9,9 @@ import {
   objectUrl,
   parseDelimited,
   parseListXml,
+  parentPrefix,
   parseLocation,
+  parsePathParam,
   previewKind,
   s3Uri,
   sortEntries,
@@ -44,23 +47,17 @@ const state = {
 
 function readUrl() {
   const p = new URLSearchParams(location.search);
+  const loc = parsePathParam(p.get("path")) || { bucket: "", prefix: "", key: "" };
   return {
-    bucket: (p.get("bucket") || "").trim(),
-    prefix: normalizePrefix(p.get("prefix") || ""),
-    key: p.get("key") || "",
+    ...loc,
     region: (p.get("region") || "").trim(),
     pageSize: p.has("n") ? clampPageSize(p.get("n")) : storedPageSize(),
   };
 }
 
 function writeUrl(push) {
-  const p = new URLSearchParams();
-  if (state.bucket) p.set("bucket", state.bucket);
-  if (state.prefix) p.set("prefix", state.prefix);
-  if (state.region) p.set("region", state.region);
-  if (state.bucket && state.pageSize !== 100) p.set("n", String(state.pageSize));
-  const qs = p.toString();
-  const url = `${location.pathname}${qs ? "?" + qs : ""}`;
+  const qs = buildQuery({ ...state, path: state.key || state.prefix });
+  const url = `${location.pathname}${qs}`;
   if (url === `${location.pathname}${location.search}`) return;
   (push ? history.pushState : history.replaceState).call(history, null, "", url);
 }
@@ -90,6 +87,15 @@ function navigate({ bucket, prefix, region }, push = true) {
   state.region = region ?? state.region;
   resetPaging();
   writeUrl(push);
+  render();
+}
+
+function navigateToFile({ bucket, key, region }) {
+  state.bucket = bucket;
+  state.key = key;
+  state.prefix = parentPrefix(key);
+  state.region = region ?? state.region;
+  writeUrl(true);
   render();
 }
 
@@ -178,6 +184,21 @@ function describeError(err) {
   }
 }
 
+/**
+ * Whether a typed path without a trailing "/" names a folder (something exists
+ * under path/). If not, it is treated as a file and opened in the viewer.
+ */
+async function isFolder(bucket, path, region) {
+  try {
+    const res = await fetch(listUrl({ bucket, prefix: path + "/", region, pageSize: 1 }));
+    if (!res.ok) return false;
+    const r = parseListXml(new DOMParser().parseFromString(await res.text(), "application/xml"));
+    return r.folders.length + r.files.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 // ---------- rendering ----------
 
 /**
@@ -222,17 +243,11 @@ function renderBreadcrumbs(nav, prefix, fileName = "", trailing = null) {
 }
 
 function hrefFor(bucket, prefix) {
-  const p = new URLSearchParams({ bucket });
-  if (prefix) p.set("prefix", prefix);
-  if (state.region) p.set("region", state.region);
-  if (state.pageSize !== 100) p.set("n", String(state.pageSize));
-  return `?${p}`;
+  return buildQuery({ bucket, path: prefix, region: state.region, pageSize: state.pageSize });
 }
 
 function viewHref(bucket, key) {
-  const p = new URLSearchParams({ bucket, key });
-  if (state.region) p.set("region", state.region);
-  return `?${p}`;
+  return buildQuery({ bucket, path: key, region: state.region });
 }
 
 function isModified(e) {
@@ -426,7 +441,7 @@ function setPageSize(n) {
 // ---------- file viewer (preview dialog and full-page view) ----------
 
 // A viewer renders one text file into a set of elements. The preview dialog
-// and the full-page view (?bucket=…&key=…) each have one.
+// and the full-page view (?path=bucket/key) each have one.
 function makeViewer(ids, maxBytes, maxRows) {
   return {
     body: $(ids.body),
@@ -521,15 +536,28 @@ async function renderFileView() {
   $("viewer-raw").href = objectUrl(state.bucket, key, state.region);
   // HEAD gives the size (Content-Length is readable cross-origin); fall back to unknown.
   let size = null;
+  let status = 0;
   try {
     const res = await fetch(objectUrl(state.bucket, key, state.region), { method: "HEAD" });
+    status = res.status;
     const len = res.ok ? res.headers.get("content-length") : null;
     if (len != null) size = Number(len);
   } catch {
-    /* size stays unknown */
+    /* size stays unknown; the GET below reports any error */
   }
   if (key !== state.key) return;
   if (size != null) $("viewer-meta").textContent = formatSize(size);
+  pageViewer.requestId++; // cancel any load still in flight
+  pageViewer.toggle.hidden = true;
+  pageViewer.notice.hidden = true;
+  if (status === 404 || status === 403) {
+    pageViewer.body.replaceChildren(textBlock(status === 404 ? "File not found." : "Access denied."));
+    return;
+  }
+  if (!isPreviewable(key)) {
+    pageViewer.body.replaceChildren(textBlock("No preview for this file type. Use “Raw file” to open or download it."));
+    return;
+  }
   await loadIntoViewer(pageViewer, key, size);
 }
 
@@ -574,8 +602,12 @@ function init() {
       toast("Enter a bucket name, s3:// URI, or S3 https URL");
       return;
     }
-    const regionField = $("region-input").value.trim();
-    navigate({ ...loc, region: regionField || loc.region });
+    const region = $("region-input").value.trim() || loc.region;
+    const { bucket, path } = loc;
+    if (!path || path.endsWith("/")) return navigate({ bucket, prefix: path, region });
+    isFolder(bucket, path, region).then((folder) =>
+      folder ? navigate({ bucket, prefix: path, region }) : navigateToFile({ bucket, key: path, region }),
+    );
   });
 
   $("page-size").addEventListener("change", (e) => {
