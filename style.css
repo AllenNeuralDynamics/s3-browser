@@ -194,6 +194,9 @@ main {
   flex: 1;
   min-width: 0;
 }
+.breadcrumbs > * {
+  display: inline-block; /* wrap between crumbs before breaking inside a name */
+}
 .breadcrumbs .sep {
   color: var(--muted);
   margin: 0 4px;
@@ -537,4 +540,21 @@ footer {
 }
 .theme-switch svg {
   display: block;
+}
+
+/* ---------- full-page file viewer ---------- */
+
+.viewer-notice {
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+.viewer-body {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+  max-height: calc(100vh - 190px);
+}
+.viewer-notice:not([hidden]) + .viewer-body {
+  border-radius: 0 0 8px 8px;
 }
