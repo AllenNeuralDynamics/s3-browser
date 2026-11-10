@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>S3 Browser</title>
+    <meta name="description" content="Browse public Amazon S3 buckets like folders. No login required." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23e8a33d' d='M1 3h5l1.5 1.5H15V13H1z'/></svg>" />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="js/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <h1><a href="./" id="home-link">S3 Browser</a></h1>
+      <form id="location-form" class="location-form" autocomplete="off">
+        <input id="location-input" type="text" spellcheck="false" placeholder="bucket, bucket/prefix/, s3://bucket/prefix/, or an S3 https URL" aria-label="Bucket or S3 location" />
+        <input id="region-input" type="text" spellcheck="false" placeholder="region (optional)" aria-label="Region (optional)" />
+        <button type="submit">Go</button>
+      </form>
+    </header>
+
+    <main>
+      <section id="welcome" class="welcome">
+        <p>Browse public (anonymous-read) S3 buckets. Enter a bucket name or S3 URI above, or try one of these:</p>
+        <ul class="examples">
+          <li><a href="?bucket=aind-open-data">aind-open-data</a></li>
+          <li><a href="?bucket=allen-brain-cell-atlas">allen-brain-cell-atlas</a></li>
+          <li><a href="?bucket=dandiarchive">dandiarchive</a></li>
+          <li><a href="?bucket=openneuro.org">openneuro.org</a></li>
+        </ul>
+        <p class="note">The bucket must allow public listing and send CORS headers. Everything runs in your browser; nothing is sent anywhere except S3.</p>
+      </section>
+
+      <section id="browser" class="browser" hidden>
+        <div class="pathbar">
+          <nav id="breadcrumbs" class="breadcrumbs" aria-label="Path"></nav>
+          <button id="copy-current" class="copy-btn" type="button" title="Copy S3 URI of this folder">Copy URI</button>
+        </div>
+
+        <div class="controls">
+          <label>Per page
+            <select id="page-size">
+              <option>25</option>
+              <option>50</option>
+              <option selected>100</option>
+              <option>250</option>
+              <option>500</option>
+              <option>1000</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </label>
+          <input id="page-size-custom" type="number" min="1" max="1000" step="1" hidden aria-label="Custom page size" />
+          <span class="spacer"></span>
+          <span id="page-info" class="page-info"></span>
+          <button id="first-page" type="button" title="First page">« First</button>
+          <button id="prev-page" type="button" title="Previous page">‹ Prev</button>
+          <button id="next-page" type="button" title="Next page">Next ›</button>
+        </div>
+
+        <div id="status" class="status" role="status"></div>
+
+        <div class="table-wrap">
+          <table id="listing">
+            <thead>
+              <tr>
+                <th class="col-name"><button type="button" data-sort="name">Name</button></th>
+                <th class="col-size"><button type="button" data-sort="size">Size</button></th>
+                <th class="col-modified"><button type="button" data-sort="modified">Last modified</button></th>
+                <th class="col-actions"><span class="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="listing-body"></tbody>
+          </table>
+        </div>
+        <p class="hint">S3 lists keys in lexicographic order. Sorting by size or date applies to the current page only.</p>
+      </section>
+    </main>
+
+    <dialog id="preview">
+      <div class="preview-head">
+        <div class="preview-title">
+          <strong id="preview-name"></strong>
+          <span id="preview-meta" class="muted"></span>
+        </div>
+        <div class="preview-actions">
+          <button id="preview-toggle" type="button" hidden>Raw</button>
+          <button id="preview-copy" class="copy-btn" type="button">Copy URI</button>
+          <a id="preview-download" href="#" target="_blank" rel="noopener">Open</a>
+          <button id="preview-close" type="button" aria-label="Close preview">✕</button>
+        </div>
+      </div>
+      <div id="preview-notice" class="preview-notice" hidden></div>
+      <div id="preview-body" class="preview-body"></div>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <footer>
+      <a href="https://github.com/AllenNeuralDynamics/s3-browser">Source</a> · MIT License
+    </footer>
+  </body>
+</html>
