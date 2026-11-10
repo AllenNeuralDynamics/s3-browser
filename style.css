@@ -190,23 +190,29 @@ main {
 .breadcrumbs {
   font-family: var(--mono);
   font-size: 15px;
-  overflow-wrap: anywhere;
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden; /* JS collapses middle crumbs into "…" so this rarely clips */
 }
 .breadcrumbs > * {
-  display: inline-block; /* wrap between crumbs before breaking inside a name */
+  flex: none;
+}
+.breadcrumbs > .current {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
 }
 .breadcrumbs > .copy-btn {
   margin-left: 8px;
-  vertical-align: 1px;
 }
 .breadcrumbs .sep {
   color: var(--muted);
   margin: 0 4px;
-}
-.breadcrumbs [aria-current] {
-  font-weight: 600;
 }
 
 .controls {
