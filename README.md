@@ -4,6 +4,9 @@ A static web page for browsing public (anonymous-read) Amazon S3 buckets as fold
 
 **Live:** https://allenneuraldynamics.github.io/s3-browser/
 
+> [!WARNING]
+> **Use at your own risk.** This code was written by an AI coding assistant and has not been reviewed by a human. It is provided as is, without warranty of any kind (see [LICENSE](LICENSE)). Check it before relying on it.
+
 ## Features
 
 - Folder-style navigation over `/`-delimited prefixes, with breadcrumbs and browser back/forward
