@@ -205,43 +205,83 @@ async function isFolder(bucket, path, region) {
 /**
  * Breadcrumbs for a folder prefix, optionally ending in a file name.
  * `trailing` (the copy button) is placed right after the last crumb.
+ * The path stays on one line: middle folders collapse into "…" when it doesn't fit.
  */
 function renderBreadcrumbs(nav, prefix, fileName = "", trailing = null) {
-  nav.replaceChildren();
-  const parts = prefix.split("/").filter(Boolean);
-  const crumb = (label, prefix, current) => {
-    const el = document.createElement(current ? "span" : "a");
-    el.textContent = label;
-    if (current) el.setAttribute("aria-current", "page");
-    else {
-      el.href = hrefFor(state.bucket, prefix);
-      el.addEventListener("click", (e) => {
-        if (isModified(e)) return;
-        e.preventDefault();
-        navigate({ bucket: state.bucket, prefix });
-      });
-    }
-    nav.append(el);
+  const folderLink = (label, prefix) => {
+    const a = document.createElement("a");
+    a.textContent = label;
+    a.href = hrefFor(state.bucket, prefix);
+    a.addEventListener("click", (e) => {
+      if (isModified(e)) return;
+      e.preventDefault();
+      navigate({ bucket: state.bucket, prefix });
+    });
+    return a;
   };
+  // crumbs: [{ el, prefix }] from the bucket to the current folder or file.
+  const parts = prefix.split("/").filter(Boolean);
+  const crumbs = [{ el: folderLink(state.bucket, ""), prefix: "" }];
+  let acc = "";
+  for (const part of parts) {
+    acc += part + "/";
+    crumbs.push({ el: folderLink(part, acc), prefix: acc });
+  }
+  if (fileName) crumbs.push({ el: document.createElement("a"), prefix: null, label: fileName });
+  // The last crumb is the current location: plain text, truncated with an ellipsis if needed.
+  const last = crumbs[crumbs.length - 1];
+  const current = document.createElement("span");
+  current.textContent = last.label ?? last.el.textContent;
+  current.title = current.textContent;
+  current.className = "current";
+  current.setAttribute("aria-current", "page");
+  last.el = current;
+  nav._crumbs = { crumbs, trailing };
+  layoutBreadcrumbs(nav);
+}
+
+function layoutBreadcrumbs(nav) {
+  const { crumbs, trailing } = nav._crumbs || {};
+  if (!crumbs) return;
   const sep = () => {
     const el = document.createElement("span");
     el.className = "sep";
     el.textContent = "/";
-    nav.append(el);
+    return el;
   };
-  crumb(state.bucket, "", !fileName && parts.length === 0);
-  let acc = "";
-  parts.forEach((part, i) => {
-    acc += part + "/";
-    sep();
-    crumb(part, acc, !fileName && i === parts.length - 1);
-  });
-  if (fileName) {
-    sep();
-    crumb(fileName, null, true);
-  }
-  if (trailing) nav.append(trailing);
+  // Collapse crumbs[1..1+hidden) into "…", keeping the bucket and the last crumb.
+  const build = (hidden) => {
+    const children = [crumbs[0].el];
+    if (hidden > 0) {
+      const deepest = crumbs[hidden];
+      const more = document.createElement("a");
+      more.textContent = "…";
+      more.className = "more";
+      more.href = hrefFor(state.bucket, deepest.prefix);
+      more.title = crumbs.slice(1, hidden + 1).map((c) => c.el.textContent).join("/") + "/";
+      more.addEventListener("click", (e) => {
+        if (isModified(e)) return;
+        e.preventDefault();
+        navigate({ bucket: state.bucket, prefix: deepest.prefix });
+      });
+      children.push(sep(), more);
+    }
+    for (const c of crumbs.slice(hidden + 1)) children.push(sep(), c.el);
+    if (trailing) children.push(trailing);
+    nav.replaceChildren(...children);
+  };
+  const current = crumbs[crumbs.length - 1].el;
+  const fits = () => nav.scrollWidth <= nav.clientWidth && current.scrollWidth <= current.clientWidth;
+  const maxHidden = Math.max(0, crumbs.length - 2);
+  let hidden = 0;
+  build(0);
+  while (!fits() && hidden < maxHidden) build(++hidden);
 }
+
+// Re-fit breadcrumbs when their width changes (window resize, layout changes).
+const breadcrumbObserver = new ResizeObserver((entries) => {
+  for (const e of entries) layoutBreadcrumbs(e.target);
+});
 
 function hrefFor(bucket, prefix) {
   return buildQuery({ bucket, path: prefix, region: state.region, pageSize: state.pageSize });
@@ -659,6 +699,7 @@ function init() {
     loadFromUrl();
   });
 
+  for (const nav of [$("breadcrumbs"), $("viewer-breadcrumbs")]) breadcrumbObserver.observe(nav);
   window.addEventListener("popstate", loadFromUrl);
   loadFromUrl();
 }
