@@ -22,6 +22,16 @@ const CSV_MAX_ROWS = 500;
 const VIEW_BYTES = 10 * 1024 * 1024; // full-page view fetches at most 10 MiB
 const VIEW_CSV_MAX_ROWS = 5000;
 const PAGE_SIZE_KEY = "s3-browser:page-size";
+const IMAGE_MIME_TYPES = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  bmp: "image/bmp",
+  avif: "image/avif",
+  ico: "image/x-icon",
+};
 
 const $ = (id) => document.getElementById(id);
 
@@ -517,6 +527,7 @@ function makeViewer(ids, maxBytes, maxRows) {
     key: "",
     size: null, // bytes, or null if unknown
     raw: "",
+    imageUrl: "",
     truncated: false,
     kind: "text",
     showRaw: false,
@@ -534,19 +545,26 @@ async function loadIntoViewer(v, key, size) {
   v.size = size;
   v.kind = previewKind(key);
   v.showRaw = false;
+  if (v.imageUrl) URL.revokeObjectURL(v.imageUrl);
+  v.imageUrl = "";
+  v.truncated = false;
   v.toggle.hidden = true;
   v.notice.hidden = true;
   v.body.replaceChildren(textBlock("Loading…"));
+  let raw = "";
+  let imageData = null;
+  let truncated = false;
   try {
     const res = await fetch(objectUrl(state.bucket, key, state.region), { headers: { Range: `bytes=0-${v.maxBytes - 1}` } });
     if (res.status === 416) {
-      v.raw = ""; // empty object: any byte range is unsatisfiable
+      // Empty object: any byte range is unsatisfiable.
     } else if (!res.ok) {
       throw new Error(res.status === 403 ? "access denied" : res.status === 404 ? "file not found" : `HTTP ${res.status}`);
     } else {
       const buf = await res.arrayBuffer();
-      v.raw = new TextDecoder("utf-8", { fatal: false }).decode(buf.byteLength > v.maxBytes ? buf.slice(0, v.maxBytes) : buf);
-      v.truncated = size != null ? size > v.maxBytes : buf.byteLength >= v.maxBytes;
+      truncated = size != null ? size > v.maxBytes || buf.byteLength > v.maxBytes : buf.byteLength >= v.maxBytes;
+      if (v.kind === "image") imageData = buf.slice(0, v.maxBytes);
+      else raw = new TextDecoder("utf-8", { fatal: false }).decode(buf.byteLength > v.maxBytes ? buf.slice(0, v.maxBytes) : buf);
     }
   } catch (err) {
     if (id !== v.requestId) return;
@@ -554,7 +572,13 @@ async function loadIntoViewer(v, key, size) {
     return;
   }
   if (id !== v.requestId) return;
-  v.toggle.hidden = v.kind === "text";
+  v.raw = raw;
+  v.truncated = truncated;
+  if (v.kind === "image" && imageData?.byteLength && !truncated) {
+    const extension = key.split(".").pop().toLowerCase();
+    v.imageUrl = URL.createObjectURL(new Blob([imageData], { type: IMAGE_MIME_TYPES[extension] }));
+  }
+  v.toggle.hidden = v.kind === "text" || v.kind === "image";
   renderViewer(v);
 }
 
@@ -568,6 +592,15 @@ function renderViewer(v) {
     v.notice.hidden = !notes.length;
   };
   if (v.showRaw || v.kind === "text") return show(textBlock(v.raw));
+  if (v.kind === "image") {
+    if (v.truncated) return show(textBlock("Image is too large to preview. Use the raw file link to open or download it."));
+    if (!v.imageUrl) return show(textBlock("This file could not be previewed as an image."));
+    const image = document.createElement("img");
+    image.className = "preview-image";
+    image.src = v.imageUrl;
+    image.alt = v.key.split("/").pop();
+    return show(image);
+  }
   if (v.kind === "json") {
     if (v.truncated) return show(textBlock(v.raw));
     try {
@@ -710,6 +743,10 @@ function init() {
   $("copy-current").addEventListener("click", (e) => copy(s3Uri(state.bucket, state.prefix), e.currentTarget));
 
   $("preview-close").addEventListener("click", () => $("preview").close());
+  $("preview").addEventListener("close", () => {
+    if (dialogViewer.imageUrl) URL.revokeObjectURL(dialogViewer.imageUrl);
+    dialogViewer.imageUrl = "";
+  });
   $("preview").addEventListener("click", (e) => {
     if (e.target === e.currentTarget) e.currentTarget.close(); // click on backdrop
   });
