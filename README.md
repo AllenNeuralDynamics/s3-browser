@@ -13,7 +13,7 @@ A static web page for browsing public (anonymous-read) Amazon S3 buckets as fold
 - Paging with a configurable page size (1–1000 items per page)
 - Lexicographic order by default (S3's native order); size and date sorting within a page
 - Prefix search within a folder: S3 matches names that start with the typed text (case-sensitive) across the whole folder, not just the current page. Kept in the URL as `q`.
-- Previews for text files (txt, md, json, yaml, csv, tsv, xml, Zarr metadata, …) and small images (jpg, png, gif, webp, …). JSON is pretty-printed; CSV/TSV render as a table. Large dialog previews show the first 1 MiB.
+- Previews for text files (txt, md, json, yaml, csv, tsv, xml, Zarr metadata, …) and images up to 5 MiB (jpg, png, gif, webp, …). JSON is pretty-printed; CSV/TSV render as a table. Larger text files are previewed from their first 5 MiB.
 - "Open" on a text file shows it in a full-page viewer in a new tab (up to 10 MiB), since many objects are stored as `binary/octet-stream` and would otherwise download. Other files open directly from S3.
 - Copy-to-clipboard buttons for full `s3://bucket/key` URIs
 - Light, dark, or system color theme, remembered per browser
