@@ -446,6 +446,13 @@ dialog::backdrop {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.preview-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  object-fit: contain;
+}
 table.csv {
   border-collapse: collapse;
   font: 12.5px/1.4 var(--mono);
