@@ -13,6 +13,7 @@ const TEXT_FILENAMES = new Set([
   "readme", "license", "licence", "changelog", "makefile", "dockerfile", ".gitignore",
   ".zattrs", ".zarray", ".zgroup", ".zmetadata",
 ]);
+const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "avif", "ico"]);
 
 /**
  * Parse user input into { bucket, prefix, region }.
@@ -216,7 +217,8 @@ export function isPreviewable(key) {
   if (TEXT_FILENAMES.has(name)) return true;
   const dot = name.lastIndexOf(".");
   if (dot < 0) return false;
-  return TEXT_EXTENSIONS.has(name.slice(dot + 1));
+  const extension = name.slice(dot + 1);
+  return TEXT_EXTENSIONS.has(extension) || IMAGE_EXTENSIONS.has(extension);
 }
 
 export function previewKind(key) {
@@ -224,6 +226,7 @@ export function previewKind(key) {
   if (/\.(json|geojson|zattrs|zarray|zgroup|zmetadata)$/.test(name) || /\/\.z(attrs|array|group|metadata)$/.test(name)) return "json";
   if (name.endsWith(".csv")) return "csv";
   if (name.endsWith(".tsv")) return "tsv";
+  if (/\.(jpg|jpeg|png|gif|webp|bmp|avif|ico)$/.test(name)) return "image";
   return "text";
 }
 
