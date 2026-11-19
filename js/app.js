@@ -17,7 +17,7 @@ import {
   sortEntries,
 } from "./s3.js?v=dev"; // ?v= is replaced with the commit hash at deploy time
 
-const PREVIEW_BYTES = 1024 * 1024; // fetch at most 1 MiB for previews
+const PREVIEW_BYTES = 5 * 1024 * 1024; // fetch at most 5 MiB for previews
 const CSV_MAX_ROWS = 500;
 const VIEW_BYTES = 10 * 1024 * 1024; // full-page view fetches at most 10 MiB
 const VIEW_CSV_MAX_ROWS = 5000;
