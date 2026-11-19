@@ -93,7 +93,7 @@ test("display helpers", () => {
 });
 
 test("preview detection", () => {
-  for (const k of ["a/b.txt", "x.JSON", "c.yaml", "d.yml", "e.csv", "f.tsv", "README", "z/.zattrs", "m.md", "image.jpg", "image.jpeg", "image.png", "image.gif", "image.webp", "image.bmp", "image.avif", "image.ico"]) {
+  for (const k of ["a/b.txt", "x.JSON", "c.yaml", "d.yml", "e.csv", "f.tsv", "README", "z/.zattrs", "m.md", "image.jpg", "image.jpeg", "image.png", "image.gif", "image.webp", "image.bmp", "image.avif", "image.ico", "v.mp4", "v.M4V", "v.webm", "v.ogv", "v.mov"]) {
     assert.ok(isPreviewable(k), k);
   }
   for (const k of ["a.zarr/0/0", "img.tif", "data.nwb", "x.h5"]) assert.ok(!isPreviewable(k), k);
@@ -103,6 +103,8 @@ test("preview detection", () => {
   assert.equal(previewKind("a.csv"), "csv");
   assert.equal(previewKind("a.tsv"), "tsv");
   assert.equal(previewKind("a/image.jpeg"), "image");
+  assert.equal(previewKind("a/clip.MP4"), "video");
+  assert.equal(previewKind("a/clip.webm"), "video");
   assert.equal(previewKind("a.yaml"), "text");
 });
 

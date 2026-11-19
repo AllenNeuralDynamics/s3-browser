@@ -14,6 +14,9 @@ const TEXT_FILENAMES = new Set([
   ".zattrs", ".zarray", ".zgroup", ".zmetadata",
 ]);
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "avif", "ico"]);
+// Containers that current browsers play natively. MOV plays when it holds H.264,
+// which most do; anything else gets a "can't play" message from the player.
+const VIDEO_EXTENSIONS = new Set(["mp4", "m4v", "webm", "ogv", "mov"]);
 
 /**
  * Parse user input into { bucket, prefix, region }.
@@ -218,7 +221,7 @@ export function isPreviewable(key) {
   const dot = name.lastIndexOf(".");
   if (dot < 0) return false;
   const extension = name.slice(dot + 1);
-  return TEXT_EXTENSIONS.has(extension) || IMAGE_EXTENSIONS.has(extension);
+  return TEXT_EXTENSIONS.has(extension) || IMAGE_EXTENSIONS.has(extension) || VIDEO_EXTENSIONS.has(extension);
 }
 
 export function previewKind(key) {
@@ -227,6 +230,7 @@ export function previewKind(key) {
   if (name.endsWith(".csv")) return "csv";
   if (name.endsWith(".tsv")) return "tsv";
   if (/\.(jpg|jpeg|png|gif|webp|bmp|avif|ico)$/.test(name)) return "image";
+  if (/\.(mp4|m4v|webm|ogv|mov)$/.test(name)) return "video";
   return "text";
 }
 

@@ -141,6 +141,7 @@ async function render() {
   $("welcome").hidden = !!state.bucket;
   $("browser").hidden = !state.bucket || viewing;
   $("viewer").hidden = !viewing;
+  if (!viewing) stopMedia(pageViewer); // e.g. browser Back from a playing video
   document.title = uri ? `${uri} · S3 Browser` : "S3 Browser";
   if (!state.bucket) return;
   if (viewing) return renderFileView();
@@ -550,6 +551,13 @@ async function loadIntoViewer(v, key, size) {
   v.truncated = false;
   v.toggle.hidden = true;
   v.notice.hidden = true;
+  stopMedia(v);
+  if (v.kind === "video") {
+    // Stream straight from S3: the player fetches byte ranges as needed, so there
+    // is no size limit and the file is not read into memory.
+    v.body.replaceChildren(videoPlayer(objectUrl(state.bucket, key, state.region)));
+    return;
+  }
   v.body.replaceChildren(textBlock("Loading…"));
   let raw = "";
   let imageData = null;
@@ -659,6 +667,28 @@ async function renderFileView() {
   await loadIntoViewer(pageViewer, key, size);
 }
 
+function videoPlayer(src) {
+  const video = document.createElement("video");
+  video.className = "preview-video";
+  video.controls = true;
+  video.preload = "metadata";
+  video.playsInline = true;
+  video.addEventListener("error", () => {
+    video.replaceWith(textBlock("Could not play this video. The browser may not support its format or codec, or the file could not be loaded."));
+  });
+  video.src = src;
+  return video;
+}
+
+/** Stop any playing video in a viewer so it doesn't keep playing after it is removed. */
+function stopMedia(v) {
+  for (const el of v.body.querySelectorAll("video")) {
+    el.pause();
+    el.removeAttribute("src");
+    el.load();
+  }
+}
+
 function textBlock(text) {
   const pre = document.createElement("pre");
   pre.textContent = text;
@@ -746,6 +776,7 @@ function init() {
   $("preview").addEventListener("close", () => {
     if (dialogViewer.imageUrl) URL.revokeObjectURL(dialogViewer.imageUrl);
     dialogViewer.imageUrl = "";
+    stopMedia(dialogViewer);
   });
   $("preview").addEventListener("click", (e) => {
     if (e.target === e.currentTarget) e.currentTarget.close(); // click on backdrop

@@ -10,6 +10,7 @@ A minimal, dependency-free static page for browsing public S3 buckets like a fil
 - Virtual-hosted URLs (`https://<bucket>.s3.amazonaws.com`) route to any region; dotted bucket names use path-style URLs with an optional region.
 - Paging uses S3 continuation tokens, which are forward-only, so the app keeps the tokens it has seen for Prev/First.
 - Previews fetch at most 5 MiB with a `Range` request.
+- Videos are not fetched by the app: a `<video>` element streams them from S3 with range requests, so they have no size limit.
 - Pure logic lives in `js/s3.js` and is unit-tested with `node --test`; DOM code is in `js/app.js`.
 
 ## Open questions
