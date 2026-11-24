@@ -176,6 +176,14 @@ export function parseListXml(doc) {
   };
 }
 
+/**
+ * Drop the empty "folder marker" object some tools create at the folder's own
+ * key (e.g. "a/b/" inside "a/b/"). It would otherwise show as a nameless file.
+ */
+export function withoutFolderMarker(files, prefix) {
+  return prefix ? files.filter((f) => f.key !== prefix) : files;
+}
+
 /** Byte-order (code unit) comparison, matching S3's lexicographic listing order. */
 export function lexCompare(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;

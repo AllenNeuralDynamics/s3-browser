@@ -18,6 +18,7 @@ import {
   previewKind,
   s3Uri,
   sortEntries,
+  withoutFolderMarker,
 } from "../js/s3.js";
 
 test("parseLocation handles common input forms", () => {
@@ -138,4 +139,10 @@ test("path query parameter round-trips", () => {
   const q = buildQuery({ bucket: "b", path: "x y/a+b&c=d#e?.csv" });
   assert.equal(q, "?path=b/x%20y/a%2Bb%26c%3Dd%23e%3F.csv");
   assert.deepEqual(parsePathParam(new URLSearchParams(q).get("path")), { bucket: "b", prefix: "x y/", key: "x y/a+b&c=d#e?.csv" });
+});
+
+test("withoutFolderMarker drops only the folder's own key", () => {
+  const files = [{ key: "a/b/" }, { key: "a/b/c.txt" }, { key: "a/b/d/" }];
+  assert.deepEqual(withoutFolderMarker(files, "a/b/").map((f) => f.key), ["a/b/c.txt", "a/b/d/"]);
+  assert.equal(withoutFolderMarker(files, "").length, 3);
 });

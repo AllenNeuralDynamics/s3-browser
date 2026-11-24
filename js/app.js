@@ -15,6 +15,7 @@ import {
   previewKind,
   s3Uri,
   sortEntries,
+  withoutFolderMarker,
 } from "./s3.js?v=dev"; // ?v= is replaced with the commit hash at deploy time
 
 const PREVIEW_BYTES = 5 * 1024 * 1024; // fetch at most 5 MiB for previews
@@ -174,7 +175,7 @@ async function loadPage() {
     return;
   }
   if (id !== state.requestId) return; // a newer request superseded this one
-  state.entries = [...result.folders, ...result.files];
+  state.entries = [...result.folders, ...withoutFolderMarker(result.files, state.prefix)];
   state.isTruncated = result.isTruncated;
   if (result.nextToken) state.tokens[page + 1] = result.nextToken;
   renderRows();
@@ -657,6 +658,12 @@ async function renderFileView() {
   pageViewer.toggle.hidden = true;
   pageViewer.notice.hidden = true;
   if (status === 404 || status === 403) {
+    // A link to a folder without its trailing "/" lands here; open the folder instead.
+    if (await isFolder(state.bucket, key, state.region)) {
+      if (key === state.key) navigate({ bucket: state.bucket, prefix: key }, false);
+      return;
+    }
+    if (key !== state.key) return;
     pageViewer.body.replaceChildren(textBlock(status === 404 ? "File not found." : "Access denied."));
     return;
   }

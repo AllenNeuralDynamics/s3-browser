@@ -29,7 +29,7 @@ s3://aind-open-data/some/prefix/
 https://aind-open-data.s3.us-west-2.amazonaws.com/some/prefix/
 ```
 
-The location is kept in the URL, so links can be shared. `path` is the bucket plus prefix or key, like an S3 URI without `s3://`; a trailing `/` means a folder, otherwise the file opens in the viewer. `region` and `n` (page size) are optional:
+The location is kept in the URL, so links can be shared. `path` is the bucket plus prefix or key, like an S3 URI without `s3://`; a trailing `/` means a folder, otherwise the file opens in the viewer (or the folder, if no such file exists but a folder by that name does). `region` and `n` (page size) are optional:
 
 ```
 ?path=aind-open-data/some/prefix/
